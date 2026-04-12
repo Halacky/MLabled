@@ -1,0 +1,3 @@
+# URL of the external qwen3-vl-inference API server
+api_url: "http://host.docker.internal:8501"
+timeout: 120.0

@@ -1,0 +1,46 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Frontend
+node_modules/
+dist/
+.vite/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+venv/
+.venv/
+
+# Docker volumes data (not tracked)
+pgdata/
+redisdata/
+miniodata/
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+*.bin
+*.safetensors
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/

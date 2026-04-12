@@ -1,0 +1,66 @@
+# Example: deploy model servers alongside the main stack.
+# Run with: docker compose -f docker-compose.yml -f docker-compose.models.yml up
+#
+# For remote GPU servers, copy model_template/ to the server and run
+# a standalone docker-compose with just the model service.
+# Then register it via POST /api/models/register {name, url}.
+
+services:
+  model-yolo:
+    build:
+      context: ./model_template
+      dockerfile: examples/yolo/Dockerfile
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./model_template/base:/app/base:ro
+      - yolo-cache:/root/.cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  model-sam3:
+    build:
+      context: ./model_template
+      dockerfile: examples/sam3/Dockerfile
+    ports:
+      - "8002:8000"
+    volumes:
+      - ./model_template/base:/app/base:ro
+      - sam-cache:/root/.cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  model-qwen-vl:
+    build:
+      context: ./model_template
+      dockerfile: examples/qwen_vl/Dockerfile
+    ports:
+      - "8003:8000"
+    volumes:
+      - ./model_template/base:/app/base:ro
+      - qwen-cache:/root/.cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+volumes:
+  yolo-cache:
+  sam-cache:
+  qwen-cache:
