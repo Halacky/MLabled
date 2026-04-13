@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     s3_bucket: str = "mlabled"
     s3_region: str = "us-east-1"
 
+    # MinIO console URL (for frontend links)
+    minio_console_url: str = "http://localhost:9003"
+
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 

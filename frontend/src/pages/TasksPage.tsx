@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../api/client";
 import { imageUrl } from "../api/imageUrl";
+import { getAppConfig } from "../api/config";
 import ExportDialog from "../components/ExportDialog";
 
 interface Task {
@@ -34,6 +35,7 @@ export default function TasksPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<Record<number, TaskStats>>({});
+  const [minioUrl, setMinioUrl] = useState("");
 
   // ── Create task form ──
   const [showCreate, setShowCreate] = useState(false);
@@ -49,6 +51,10 @@ export default function TasksPage() {
   const [showExport, setShowExport] = useState(false);
 
   const fetchData = async () => {
+    // Load MinIO console URL from backend config
+    const cfg = await getAppConfig();
+    setMinioUrl(cfg.minio_console_url);
+
     const [projRes, tasksRes] = await Promise.all([
       api.get(`/projects/${projectId}`),
       api.get(`/projects/${projectId}/tasks`),
@@ -315,7 +321,7 @@ export default function TasksPage() {
                     />
                     <p style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
                       Leave empty for default path. Browse files in{" "}
-                      <a href={`http://${window.location.hostname}:9003/browser/${s3Bucket || "mlabled"}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
+                      <a href={`${minioUrl}/browser/${s3Bucket || "mlabled"}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
                         MinIO Console
                       </a>
                     </p>
@@ -468,7 +474,7 @@ export default function TasksPage() {
 
                 {s?.s3_bucket && s?.s3_path && (
                   <a
-                    href={`http://${window.location.hostname}:9003/browser/${s.s3_bucket}/${encodeURIComponent(s.s3_path)}/`}
+                    href={`${minioUrl}/browser/${s.s3_bucket}/${encodeURIComponent(s.s3_path)}/`}
                     target="_blank"
                     rel="noreferrer"
                     style={{ ...btnGhost, color: "var(--accent)", textDecoration: "none" }}

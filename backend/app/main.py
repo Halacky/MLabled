@@ -39,3 +39,12 @@ app.include_router(review.router, prefix="/api/review", tags=["review"])
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/config")
+async def get_config():
+    """Public config for frontend (MinIO console URL, etc.)."""
+    return {
+        "minio_console_url": settings.minio_console_url,
+        "s3_bucket": settings.s3_bucket,
+    }
