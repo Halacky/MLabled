@@ -1,65 +1,20 @@
+# ── Development: all-in-one (single machine) ──
+# For production, use deploy/{infrastructure,backend,frontend}/ separately.
+
 services:
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    environment:
-      # Passed to nginx config via env substitution if needed
-      MINIO_CONSOLE_URL: ${MINIO_CONSOLE_URL:-http://localhost:9003}
-    restart: unless-stopped
-
-  backend:
-    build: ./backend
-    ports:
-      - "8010:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mlabled}:${POSTGRES_PASSWORD:-mlabled}@postgres:5432/${POSTGRES_DB:-mlabled}
-      REDIS_URL: redis://redis:6379/0
-      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
-      S3_BUCKET: ${S3_BUCKET:-mlabled}
-      MINIO_CONSOLE_URL: ${MINIO_CONSOLE_URL:-http://localhost:9003}
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-openssl-rand}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@mlabled.local}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
-      CORS_ORIGINS: '["http://localhost:3000", "http://localhost:5173"]'
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    restart: unless-stopped
-
-  celery-worker:
-    build: ./backend
-    command: celery -A app.tasks worker -l info
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mlabled}:${POSTGRES_PASSWORD:-mlabled}@postgres:5432/${POSTGRES_DB:-mlabled}
-      REDIS_URL: redis://redis:6379/0
-      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
-      S3_BUCKET: ${S3_BUCKET:-mlabled}
-    depends_on:
-      - backend
-      - redis
-    restart: unless-stopped
-
+  # ── Infrastructure ──
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mlabled}
-      POSTGRES_USER: ${POSTGRES_USER:-mlabled}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlabled}
+      POSTGRES_DB: mlabled
+      POSTGRES_USER: mlabled
+      POSTGRES_PASSWORD: mlabled
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mlabled} -d ${POSTGRES_DB:-mlabled}"]
+      test: ["CMD-SHELL", "pg_isready -U mlabled -d mlabled"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -73,8 +28,6 @@ services:
       - "6380:6379"
     restart: unless-stopped
 
-  # Built-in MinIO — can be disabled via ENABLE_BUILTIN_MINIO=false in .env
-  # When using an external MinIO, set S3_ENDPOINT/S3_ACCESS_KEY/S3_SECRET_KEY in .env
   minio:
     image: minio/minio
     command: server /data --console-address ":9001"
@@ -82,12 +35,60 @@ services:
       - "9002:9000"
       - "9003:9001"
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     volumes:
       - miniodata:/data
-    profiles:
-      - minio
+    restart: unless-stopped
+
+  # ── Backend ──
+  backend:
+    build: ./backend
+    ports:
+      - "8010:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mlabled:mlabled@postgres:5432/mlabled
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: mlabled
+      MINIO_CONSOLE_URL: http://localhost:9003
+      SECRET_KEY: dev-secret-key
+      ADMIN_EMAIL: admin@mlabled.local
+      ADMIN_PASSWORD: admin
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    restart: unless-stopped
+
+  celery-worker:
+    build: ./backend
+    command: celery -A app.tasks worker -l info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://mlabled:mlabled@postgres:5432/mlabled
+      REDIS_URL: redis://redis:6379/0
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: mlabled
+    depends_on:
+      - backend
+      - redis
+    restart: unless-stopped
+
+  # ── Frontend ──
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:

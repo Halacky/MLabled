@@ -1,0 +1,55 @@
+# ── Backend: API server, Celery worker, Model adapters ──
+# Deploy on a server with GPU (for models) or without (API only).
+# Connects to external infrastructure (postgres, redis, minio).
+
+services:
+  backend:
+    build:
+      context: ../../backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mlabled}:${POSTGRES_PASSWORD:-mlabled}@${POSTGRES_HOST:-localhost}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-mlabled}
+      REDIS_URL: redis://${REDIS_HOST:-localhost}:${REDIS_PORT:-6379}/0
+      S3_ENDPOINT: http://${MINIO_HOST:-localhost}:${MINIO_API_PORT:-9000}
+      S3_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-mlabled}
+      MINIO_CONSOLE_URL: ${MINIO_CONSOLE_URL:-http://localhost:9001}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@mlabled.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000","http://localhost:5173"]}
+    restart: unless-stopped
+
+  celery-worker:
+    build:
+      context: ../../backend
+    command: celery -A app.tasks worker -l info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-mlabled}:${POSTGRES_PASSWORD:-mlabled}@${POSTGRES_HOST:-localhost}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-mlabled}
+      REDIS_URL: redis://${REDIS_HOST:-localhost}:${REDIS_PORT:-6379}/0
+      S3_ENDPOINT: http://${MINIO_HOST:-localhost}:${MINIO_API_PORT:-9000}
+      S3_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-mlabled}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ── Model adapters ──
+  # Each adapter is a thin proxy to an external model API or runs a model locally.
+  # Add/remove as needed.
+
+  model-qwen-vl:
+    build:
+      context: ../../model_template
+      dockerfile: examples/qwen_vl/Dockerfile
+    ports:
+      - "${QWEN_ADAPTER_PORT:-8501}:8000"
+    environment:
+      MODEL_CONFIG: /app/config.yaml
+    # Override config.yaml via volume if needed:
+    # volumes:
+    #   - ./qwen_config.yaml:/app/config.yaml:ro
+    restart: unless-stopped

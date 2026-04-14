@@ -1,0 +1,14 @@
+# ── Frontend: thin client (Nginx + React) ──
+# Deploy anywhere. Proxies API calls to the backend server.
+
+services:
+  frontend:
+    build:
+      context: ../../frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    volumes:
+      - ./entrypoint.sh:/docker-entrypoint.d/99-backend-url.sh:ro
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+    restart: unless-stopped
