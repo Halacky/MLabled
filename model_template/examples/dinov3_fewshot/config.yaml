@@ -1,0 +1,7 @@
+# URL of the external DINOv3 feature extraction API
+api_url: "http://host.docker.internal:8503"
+timeout: 60.0
+# Sliding window patch sizes for candidate generation
+patch_sizes: [64, 128, 256]
+# Stride as fraction of patch size (0.5 = 50% overlap)
+stride_ratio: 0.5

@@ -88,15 +88,19 @@ export function PolygonTool({ getImagePos, stageRef }: Props) {
     return () => setPoints([]);
   }, []);
 
+  const scale = useAnnotationStore((s) => s.scale);
+
   if (points.length === 0 && !mousePos) return null;
 
   const flatPoints = points.flat();
   const allPoints = mousePos ? [...flatPoints, mousePos.x, mousePos.y] : flatPoints;
+  const sw = 1 / scale;
+  const dashLen = 3 / scale;
 
   return (
     <>
       {/* Polygon outline */}
-      <Line points={allPoints} stroke="#6366f1" strokeWidth={2} dash={[4, 4]} closed={false} />
+      <Line points={allPoints} stroke="#6366f1" strokeWidth={sw} dash={[dashLen, dashLen]} closed={false} />
 
       {/* Vertices */}
       {points.map((pt, i) => (

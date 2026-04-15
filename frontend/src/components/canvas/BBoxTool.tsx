@@ -3,6 +3,7 @@ import { Rect } from "react-konva";
 import Konva from "konva";
 import { useAnnotationStore, generateId } from "../../store/annotation";
 
+
 interface Props {
   getImagePos: (e: Konva.KonvaEventObject<MouseEvent>) => { x: number; y: number } | null;
   stageRef: React.RefObject<Konva.Stage | null>;
@@ -89,6 +90,10 @@ export function BBoxTool({ getImagePos, stageRef }: Props) {
   const width = Math.abs(curPos.x - startPos.x);
   const height = Math.abs(curPos.y - startPos.y);
 
+  const scale = useAnnotationStore((s) => s.scale);
+  const sw = 1 / scale;
+  const dashLen = 3 / scale;
+
   return (
     <Rect
       x={x}
@@ -96,9 +101,9 @@ export function BBoxTool({ getImagePos, stageRef }: Props) {
       width={width}
       height={height}
       stroke="#6366f1"
-      strokeWidth={2}
-      dash={[4, 4]}
-      fill="rgba(99, 102, 241, 0.1)"
+      strokeWidth={sw}
+      dash={[dashLen, dashLen]}
+      fill="rgba(99, 102, 241, 0.05)"
     />
   );
 }

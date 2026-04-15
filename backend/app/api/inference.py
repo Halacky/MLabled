@@ -35,7 +35,7 @@ async def predict(
         raise HTTPException(status_code=404, detail="Image not found")
 
     # Download image from S3 and encode
-    image_bytes = await storage.download(image.s3_key)
+    image_bytes = await storage.download(image.s3_key, bucket=image.s3_bucket)
     image_b64 = base64.b64encode(image_bytes).decode()
 
     # Call model
@@ -91,3 +91,71 @@ async def interactive_segmentation(websocket: WebSocket, image_id: int, model_id
                 await websocket.send_json({"type": "mask", **result})
         except WebSocketDisconnect:
             pass
+
+
+class FewShotRequest(InferenceRequest):
+    """Few-shot: send reference annotations + target image."""
+    reference_image_ids: list[int] = []  # images with existing annotations to use as examples
+
+
+@router.post("/fewshot")
+async def fewshot_predict(
+    body: FewShotRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Few-shot detection: extract reference embeddings from annotated images,
+    then find similar patches on the target image."""
+    from app.models.annotation import Annotation
+
+    # Get model server
+    result = await db.execute(select(ModelServer).where(ModelServer.id == body.model_id))
+    server = result.scalar_one_or_none()
+    if not server:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    # Get target image
+    result = await db.execute(select(Image).where(Image.id == body.image_id))
+    target_image = result.scalar_one_or_none()
+    if not target_image:
+        raise HTTPException(status_code=404, detail="Target image not found")
+
+    target_bytes = await storage.download(target_image.s3_key, bucket=target_image.s3_bucket)
+    target_b64 = base64.b64encode(target_bytes).decode()
+
+    # Build references from annotated images
+    references = []
+    for ref_img_id in body.reference_image_ids:
+        ref_result = await db.execute(select(Image).where(Image.id == ref_img_id))
+        ref_img = ref_result.scalar_one_or_none()
+        if not ref_img:
+            continue
+
+        ref_bytes = await storage.download(ref_img.s3_key, bucket=ref_img.s3_bucket)
+        ref_b64 = base64.b64encode(ref_bytes).decode()
+
+        # Get annotations for this reference image
+        anns_result = await db.execute(
+            select(Annotation).where(Annotation.image_id == ref_img_id)
+        )
+        for ann in anns_result.scalars().all():
+            if ann.type != "bbox":
+                continue
+            data = ann.data
+            references.append({
+                "label": ann.label,
+                "crop": {"x": data["x"], "y": data["y"], "w": data["width"], "h": data["height"]},
+                "image_base64": ref_b64,
+            })
+
+    if not references:
+        raise HTTPException(status_code=400, detail="No bbox annotations found in reference images")
+
+    # Call model with references
+    params = {**body.params, "references": references}
+    try:
+        result = await model_proxy.predict(server, target_b64, params)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Few-shot inference failed: {e}")
+
+    return result
