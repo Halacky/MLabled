@@ -21,11 +21,11 @@ class Settings(BaseSettings):
     s3_bucket: str = "mlabled"
     s3_region: str = "us-east-1"
 
-    # MinIO console URL (for frontend links)
+    # MinIO console URL — shown to users in frontend (should be accessible from user's browser)
     minio_console_url: str = "http://localhost:9003"
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    # CORS — "*" allows any origin (needed for remote access)
+    cors_origins: list[str] = ["*"]
 
     model_config = {"env_prefix": "", "case_sensitive": False}
 
